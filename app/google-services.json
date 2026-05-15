@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "330660969523",
+    "project_id": "scannfc-8ab53",
+    "storage_bucket": "scannfc-8ab53.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:330660969523:android:9ee9415229f54732163746",
+        "android_client_info": {
+          "package_name": "com.example.scannfc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBouYq5J8GA6o_xE2h-oQVmNTTDhnxuaco"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
