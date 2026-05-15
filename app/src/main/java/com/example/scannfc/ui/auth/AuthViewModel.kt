@@ -30,14 +30,13 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signUp(email: String, password: String, fullName: String, group: Group) {
+    fun signUp(email: String, password: String, group: Group) {
         _authState.value = AuthState.Loading
         viewModelScope.launch {
             val uid = authRepository.signUp(email, password)
             if (uid != null) {
                 val user = User(
                     uid = uid,
-                    fullName = fullName,
                     email = email,
                     role = "student",
                     groupId = group.id

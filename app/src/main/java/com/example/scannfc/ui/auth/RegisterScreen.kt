@@ -1,9 +1,6 @@
 package com.example.scannfc.ui.auth
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +21,6 @@ fun RegisterScreen(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var fullName by remember { mutableStateOf("") }
     var expanded by remember { mutableStateOf(false) }
     var selectedGroup by remember { mutableStateOf<Group?>(null) }
 
@@ -51,19 +47,6 @@ fun RegisterScreen(
             color = Color.White,
             modifier = Modifier.padding(bottom = 32.dp)
         )
-
-        TextField(
-            value = fullName,
-            onValueChange = { fullName = it },
-            label = { Text("ФИО") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                unfocusedContainerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent
-            )
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
 
         TextField(
             value = email,
@@ -139,7 +122,7 @@ fun RegisterScreen(
         Button(
             onClick = {
                 if (selectedGroup != null) {
-                    viewModel.signUp(email, password, fullName, selectedGroup!!)
+                    viewModel.signUp(email, password, selectedGroup!!)
                 }
             },
             modifier = Modifier.fillMaxWidth(),
