@@ -17,6 +17,22 @@ class MainViewModel : ViewModel() {
     private val _scanStatus = MutableStateFlow<ScanStatus>(ScanStatus.Idle)
     val scanStatus: StateFlow<ScanStatus> = _scanStatus
 
+    private val _history = MutableStateFlow<List<ScanRecord>>(emptyList())
+    val history: StateFlow<List<ScanRecord>> = _history
+
+    init {
+        loadHistory()
+    }
+
+    fun loadHistory() {
+        val currentUser = authRepository.currentUser ?: return
+        viewModelScope.launch {
+            val data = firestoreRepository.getScanHistory(userId = currentUser.uid)
+            // Сортируем список вручную на устройстве, чтобы не требовать создания индексов в Firestore
+            _history.value = data.sortedByDescending { it.timestamp }
+        }
+    }
+
     fun onTagScanned(tagId: String, tagContent: String) {
         val currentUser = authRepository.currentUser
         if (currentUser == null) {
@@ -41,6 +57,7 @@ class MainViewModel : ViewModel() {
             val success = firestoreRepository.saveScan(scanRecord)
             if (success) {
                 _scanStatus.value = ScanStatus.Success(tagContent)
+                loadHistory() // Обновляем историю после нового сканирования
             } else {
                 _scanStatus.value = ScanStatus.Error("Ошибка сохранения в базу")
             }

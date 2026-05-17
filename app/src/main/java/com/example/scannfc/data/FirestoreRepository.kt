@@ -63,10 +63,15 @@ class FirestoreRepository {
     suspend fun getScanHistory(userId: String? = null, groupId: String? = null): List<ScanRecord> {
         return try {
             var query: Query = db.collection("scans")
-            if (userId != null) query = query.whereEqualTo("userId", userId)
-            else if (groupId != null) query = query.whereEqualTo("userGroupId", groupId)
+            if (userId != null) {
+                query = query.whereEqualTo("userId", userId)
+            } else if (groupId != null) {
+                query = query.whereEqualTo("userGroupId", groupId)
+            }
             
-            val snapshot = query.orderBy("timestamp", Query.Direction.DESCENDING).get().await()
+            // Убрали orderBy, чтобы не требовать индекс в Firestore. 
+            // Сортировку сделаем в MainViewModel средствами Kotlin.
+            val snapshot = query.get().await()
             snapshot.documents.mapNotNull { it.toObject(ScanRecord::class.java) }
         } catch (e: Exception) {
             Log.e("FirestoreError", "Error getting history", e)

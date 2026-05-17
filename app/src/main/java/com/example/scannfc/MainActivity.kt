@@ -3,7 +3,6 @@ package com.example.scannfc
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.IntentFilter
-import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
@@ -67,25 +66,14 @@ class MainActivity : ComponentActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
-        val filters = arrayOf(
-            IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED).apply {
-                try {
-                    addDataType("*/*")
-                } catch (e: Exception) {
-                    Log.e("NFC", "Filter error", e)
-                }
-            },
-            IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
-        )
+        val filters = arrayOf(IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED))
         nfcAdapter?.enableForegroundDispatch(this, pendingIntent, filters, null)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        val action = intent.action
-        if (NfcAdapter.ACTION_TAG_DISCOVERED == action || 
-            NfcAdapter.ACTION_NDEF_DISCOVERED == action || 
-            NfcAdapter.ACTION_TECH_DISCOVERED == action) {
+        if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
+            NfcAdapter.ACTION_NDEF_DISCOVERED == intent.action) {
             
             val tag: Tag? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
@@ -96,9 +84,9 @@ class MainActivity : ComponentActivity() {
             
             tag?.let {
                 val tagId = it.id.joinToString(":") { byte -> "%02X".format(byte) }
-                val tagContent = readNdefContent(it) ?: "Пустая метка"
+                val tagContent = readNdefContent(it) ?: "Метка без данных"
                 
-                Log.d("NFC_SCAN", "Считана метка: $tagId, Контент: $tagContent")
+                Log.d("NFC_SCAN", "ID: $tagId, Content: $tagContent")
                 sharedMainViewModel?.onTagScanned(tagId, tagContent)
             }
         }
@@ -150,7 +138,7 @@ fun AppNavigation(mainViewModel: MainViewModel) {
         composable("main") {
             MainScreen(
                 viewModel = mainViewModel,
-                onLogout = { 
+                onLogout = {
                     navController.navigate("login") {
                         popUpTo("main") { inclusive = true }
                     }
