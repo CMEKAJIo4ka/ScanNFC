@@ -1,5 +1,6 @@
 package com.example.scannfc.ui.main
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,19 +19,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.scannfc.ui.theme.CardColor
 import com.example.scannfc.ui.theme.DarkBackground
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    viewModel: MainViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val scanStatus by viewModel.scanStatus.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(scanStatus) {
+        when (scanStatus) {
+            is ScanStatus.Success -> {
+                Toast.makeText(context, "Считано: ${(scanStatus as ScanStatus.Success).tagContent}", Toast.LENGTH_SHORT).show()
+            }
+            is ScanStatus.Error -> {
+                Toast.makeText(context, (scanStatus as ScanStatus.Error).message, Toast.LENGTH_LONG).show()
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -38,7 +56,11 @@ fun MainScreen(
                 title = { 
                     Column {
                         Text("Scanner NFC", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("Готов к сканированию", fontSize = 12.sp, color = Color.Gray)
+                        Text(
+                            text = if (scanStatus is ScanStatus.Loading) "Сохранение..." else "Готов к сканированию",
+                            fontSize = 12.sp, 
+                            color = if (scanStatus is ScanStatus.Loading) MaterialTheme.colorScheme.primary else Color.Gray
+                        )
                     }
                 },
                 actions = {
@@ -57,7 +79,6 @@ fun MainScreen(
             )
         },
         bottomBar = {
-            // Кастомный Bottom Bar с закруглением
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -71,7 +92,6 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Кнопка Главная
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -86,7 +106,6 @@ fun MainScreen(
                         Text("Главная", fontSize = 10.sp, color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray)
                     }
 
-                    // Центральная кнопка Добавить (+)
                     Box(
                         modifier = Modifier
                             .size(60.dp)
@@ -107,7 +126,6 @@ fun MainScreen(
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(32.dp))
                     }
 
-                    // Кнопка История
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
@@ -136,49 +154,58 @@ fun MainScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Декоративный эффект вокруг иконки NFC
                 Box(
-                    modifier = Modifier
-                        .size(220.dp),
+                    modifier = Modifier.size(220.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Внешний приглушенный круг
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(CardColor.copy(alpha = 0.3f), CircleShape)
                     )
-                    // Внутренний круг поярче
                     Box(
                         modifier = Modifier
                             .size(170.dp)
                             .background(CardColor.copy(alpha = 0.6f), CircleShape)
                     )
                     
-                    Icon(
-                        imageVector = Icons.Default.Nfc,
-                        contentDescription = null,
-                        modifier = Modifier.size(90.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    if (scanStatus is ScanStatus.Loading) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Nfc,
+                            contentDescription = null,
+                            modifier = Modifier.size(90.dp),
+                            tint = if (scanStatus is ScanStatus.Success) Color.Green else MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
                 Text(
-                    text = "Поднесите NFC-метку",
+                    text = when (scanStatus) {
+                        is ScanStatus.Success -> "Метка считана!"
+                        is ScanStatus.Error -> "Ошибка сканирования"
+                        is ScanStatus.Loading -> "Обработка..."
+                        else -> "Поднесите NFC-метку"
+                    },
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
                 
                 Text(
-                    text = "Приложение определит информацию\nавтоматически",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
+                    text = when (scanStatus) {
+                        is ScanStatus.Success -> (scanStatus as ScanStatus.Success).tagContent
+                        is ScanStatus.Error -> (scanStatus as ScanStatus.Error).message
+                        else -> "Приложение определит информацию\nавтоматически"
+                    },
+                    fontSize = 18.sp,
+                    color = if (scanStatus is ScanStatus.Success) MaterialTheme.colorScheme.primary else Color.Gray,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 12.dp, start = 32.dp, end = 32.dp),
-                    lineHeight = 20.sp
+                    lineHeight = 24.sp
                 )
             }
         }

@@ -17,7 +17,7 @@ class MainViewModel : ViewModel() {
     private val _scanStatus = MutableStateFlow<ScanStatus>(ScanStatus.Idle)
     val scanStatus: StateFlow<ScanStatus> = _scanStatus
 
-    fun onTagScanned(tagId: String) {
+    fun onTagScanned(tagId: String, tagContent: String) {
         val currentUser = authRepository.currentUser
         if (currentUser == null) {
             _scanStatus.value = ScanStatus.Error("Пользователь не авторизован")
@@ -27,11 +27,11 @@ class MainViewModel : ViewModel() {
         _scanStatus.value = ScanStatus.Loading
         
         viewModelScope.launch {
-            // Получаем профиль пользователя, чтобы знать его группу
             val userProfile = firestoreRepository.getUserProfile(currentUser.uid)
             
             val scanRecord = ScanRecord(
                 tagId = tagId,
+                tagContent = tagContent,
                 userId = currentUser.uid,
                 userName = userProfile?.email ?: "Unknown",
                 userGroupId = userProfile?.groupId ?: "No Group",
@@ -40,7 +40,7 @@ class MainViewModel : ViewModel() {
 
             val success = firestoreRepository.saveScan(scanRecord)
             if (success) {
-                _scanStatus.value = ScanStatus.Success(tagId)
+                _scanStatus.value = ScanStatus.Success(tagContent)
             } else {
                 _scanStatus.value = ScanStatus.Error("Ошибка сохранения в базу")
             }
@@ -55,6 +55,6 @@ class MainViewModel : ViewModel() {
 sealed class ScanStatus {
     object Idle : ScanStatus()
     object Loading : ScanStatus()
-    data class Success(val tagId: String) : ScanStatus()
+    data class Success(val tagContent: String) : ScanStatus()
     data class Error(val message: String) : ScanStatus()
 }
