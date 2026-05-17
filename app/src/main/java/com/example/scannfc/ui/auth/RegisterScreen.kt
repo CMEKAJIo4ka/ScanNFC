@@ -53,14 +53,14 @@ fun RegisterScreen(
         ) {
             Text(
                 text = "Регистрация",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 40.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
             Text(
-                text = "Создайте новый аккаунт",
+                text = "Создайте новый профиль",
                 fontSize = 16.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(bottom = 32.dp)
@@ -71,10 +71,10 @@ fun RegisterScreen(
                 onValueChange = { email = it },
                 label = { Text("Почта (Логин)") },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.Gray,
+                    unfocusedBorderColor = Color.DarkGray,
                     focusedLabelColor = MaterialTheme.colorScheme.primary,
                     unfocusedLabelColor = Color.Gray,
                     focusedTextColor = Color.White,
@@ -90,10 +90,10 @@ fun RegisterScreen(
                 label = { Text("Пароль") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.Gray,
+                    unfocusedBorderColor = Color.DarkGray,
                     focusedLabelColor = MaterialTheme.colorScheme.primary,
                     unfocusedLabelColor = Color.Gray,
                     focusedTextColor = Color.White,
@@ -117,10 +117,10 @@ fun RegisterScreen(
                     modifier = Modifier
                         .menuAnchor()
                         .fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.Gray,
+                        unfocusedBorderColor = Color.DarkGray,
                         focusedLabelColor = MaterialTheme.colorScheme.primary,
                         unfocusedLabelColor = Color.Gray,
                         focusedTextColor = Color.White,
@@ -130,11 +130,12 @@ fun RegisterScreen(
 
                 ExposedDropdownMenu(
                     expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(Color(0xFF1E1E1E))
                 ) {
                     groups.forEach { group ->
                         DropdownMenuItem(
-                            text = { Text(group.name) },
+                            text = { Text(group.name, color = Color.White) },
                             onClick = {
                                 selectedGroup = group
                                 expanded = false
@@ -171,7 +172,7 @@ fun RegisterScreen(
                                 MaterialTheme.colorScheme.primaryContainer
                             )
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                 contentPadding = PaddingValues(),
@@ -193,13 +194,13 @@ fun RegisterScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             TextButton(onClick = onNavigateToLogin) {
                 Text(
                     "Уже есть аккаунт? Войти",
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 14.sp
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
