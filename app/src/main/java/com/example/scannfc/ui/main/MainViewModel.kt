@@ -23,9 +23,11 @@ class MainViewModel : ViewModel() {
     private val _isWritingMode = MutableStateFlow(false)
     val isWritingMode: StateFlow<Boolean> = _isWritingMode
 
+    private val _isDeleteMode = MutableStateFlow(false)
+    val isDeleteMode: StateFlow<Boolean> = _isDeleteMode
+
     private var textToWrite: String = ""
 
-    // Константа для пустой метки
     companion object {
         const val EMPTY_TAG_MESSAGE = "Метка без данных"
     }
@@ -45,6 +47,13 @@ class MainViewModel : ViewModel() {
     fun prepareToWrite(text: String) {
         textToWrite = text
         _isWritingMode.value = true
+        _isDeleteMode.value = false
+        _scanStatus.value = ScanStatus.WaitingForTag
+    }
+
+    fun prepareToDelete() {
+        _isDeleteMode.value = true
+        _isWritingMode.value = false
         _scanStatus.value = ScanStatus.WaitingForTag
     }
 
@@ -52,8 +61,8 @@ class MainViewModel : ViewModel() {
         val currentUser = authRepository.currentUser ?: return
 
         viewModelScope.launch {
-            if (_isWritingMode.value) {
-                handleWriteProcess(tagId, currentUser.uid)
+            if (_isWritingMode.value || _isDeleteMode.value) {
+                handleWriteOrDeleteProcess(tagId, currentUser.uid)
             } else {
                 handleReadProcess(tagId, tagContent, currentUser.uid)
             }
@@ -61,7 +70,6 @@ class MainViewModel : ViewModel() {
     }
 
     private suspend fun handleReadProcess(tagId: String, tagContent: String, uid: String) {
-        // Если метка пустая, просто показываем статус "Успех", но НЕ сохраняем в БД
         if (tagContent == EMPTY_TAG_MESSAGE || tagContent.isBlank()) {
             _scanStatus.value = ScanStatus.Success(tagContent)
             return
@@ -86,38 +94,55 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private suspend fun handleWriteProcess(tagId: String, uid: String) {
+    private suspend fun handleWriteOrDeleteProcess(tagId: String, uid: String) {
         val userProfile = firestoreRepository.getUserProfile(uid)
         val userRole = userProfile?.role ?: "student"
 
         val ownerRole = firestoreRepository.getTagOwnerRole(tagId)
 
+        // Проверка прав: студенту нельзя менять/удалять метки учителя
         if (ownerRole == "teacher" && userRole == "student") {
-            _scanStatus.value = ScanStatus.Error("Запрещено: метка защищена преподавателем")
+            val action = if (_isDeleteMode.value) "удалять" else "изменять"
+            _scanStatus.value = ScanStatus.Error("Запрещено $action метку преподавателя")
             _isWritingMode.value = false
+            _isDeleteMode.value = false
             return
         }
 
-        _scanStatus.value = ScanStatus.ReadyToWrite(tagId, textToWrite)
+        if (_isDeleteMode.value) {
+            _scanStatus.value = ScanStatus.ReadyToDelete(tagId)
+        } else {
+            _scanStatus.value = ScanStatus.ReadyToWrite(tagId, textToWrite)
+        }
     }
 
     fun onWriteFinish(success: Boolean, tagId: String) {
         val uid = authRepository.currentUser?.uid ?: return
         viewModelScope.launch {
             if (success) {
-                val userProfile = firestoreRepository.getUserProfile(uid)
-                firestoreRepository.registerTag(tagId, uid, userProfile?.role ?: "student")
-                _scanStatus.value = ScanStatus.WriteSuccess
+                if (_isDeleteMode.value) {
+                    val userProfile = firestoreRepository.getUserProfile(uid)
+                    if (userProfile?.role == "teacher") {
+                        firestoreRepository.unregisterTag(tagId)
+                    }
+                    _scanStatus.value = ScanStatus.DeleteSuccess
+                } else {
+                    val userProfile = firestoreRepository.getUserProfile(uid)
+                    firestoreRepository.registerTag(tagId, uid, userProfile?.role ?: "student")
+                    _scanStatus.value = ScanStatus.WriteSuccess
+                }
             } else {
-                _scanStatus.value = ScanStatus.Error("Физическая ошибка записи")
+                _scanStatus.value = ScanStatus.Error("Ошибка операции")
             }
             _isWritingMode.value = false
+            _isDeleteMode.value = false
         }
     }
 
     fun resetStatus() {
         _scanStatus.value = ScanStatus.Idle
         _isWritingMode.value = false
+        _isDeleteMode.value = false
     }
 }
 
@@ -127,6 +152,8 @@ sealed class ScanStatus {
     object WaitingForTag : ScanStatus()
     data class ReadyToWrite(val tagId: String, val text: String) : ScanStatus()
     object WriteSuccess : ScanStatus()
+    data class ReadyToDelete(val tagId: String) : ScanStatus()
+    object DeleteSuccess : ScanStatus()
     data class Success(val tagContent: String) : ScanStatus()
     data class Error(val message: String) : ScanStatus()
 }

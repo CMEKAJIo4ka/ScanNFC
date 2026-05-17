@@ -40,12 +40,14 @@ fun MainScreen(
     viewModel: MainViewModel
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var showWriteDialog by remember { mutableStateOf(false) }
+    var showActionChoice by remember { mutableStateOf(false) }
+    var showWriteInput by remember { mutableStateOf(false) }
     var textInput by remember { mutableStateOf("") }
     
     val scanStatus by viewModel.scanStatus.collectAsState()
     val history by viewModel.history.collectAsState()
     val isWritingMode by viewModel.isWritingMode.collectAsState()
+    val isDeleteMode by viewModel.isDeleteMode.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(selectedTab) {
@@ -56,11 +58,16 @@ fun MainScreen(
         when (scanStatus) {
             is ScanStatus.Success -> {
                 Toast.makeText(context, "Считано: ${(scanStatus as ScanStatus.Success).tagContent}", Toast.LENGTH_SHORT).show()
-                delay(3000) // Авто-сброс через 3 секунды
+                delay(3000)
                 viewModel.resetStatus()
             }
             is ScanStatus.WriteSuccess -> {
                 Toast.makeText(context, "Метка успешно записана!", Toast.LENGTH_LONG).show()
+                delay(3000)
+                viewModel.resetStatus()
+            }
+            is ScanStatus.DeleteSuccess -> {
+                Toast.makeText(context, "Данные с метки удалены", Toast.LENGTH_LONG).show()
                 delay(3000)
                 viewModel.resetStatus()
             }
@@ -73,31 +80,58 @@ fun MainScreen(
         }
     }
 
-    if (showWriteDialog) {
+    // 1. Диалог выбора действия
+    if (showActionChoice) {
         AlertDialog(
-            onDismissRequest = { showWriteDialog = false },
+            onDismissRequest = { showActionChoice = false },
             containerColor = CardColor,
-            title = { Text("Запись на метку", color = Color.White) },
+            title = { Text("Выберите действие", color = Color.White) },
+            text = {
+                Column {
+                    Button(
+                        onClick = { 
+                            showActionChoice = false
+                            showWriteInput = true 
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Записать информацию") }
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    OutlinedButton(
+                        onClick = { 
+                            showActionChoice = false
+                            viewModel.prepareToDelete()
+                            selectedTab = 0
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Очистить метку") }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 2. Диалог ввода текста
+    if (showWriteInput) {
+        AlertDialog(
+            onDismissRequest = { showWriteInput = false },
+            containerColor = CardColor,
+            title = { Text("Что записать?", color = Color.White) },
             text = {
                 OutlinedTextField(
                     value = textInput,
                     onValueChange = { textInput = it },
-                    label = { Text("Информация (кабинет, предмет)") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    )
+                    label = { Text("Кабинет / Предмет") },
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
                 )
             },
             confirmButton = {
                 Button(onClick = {
                     viewModel.prepareToWrite(textInput)
-                    showWriteDialog = false
+                    showWriteInput = false
                     selectedTab = 0
-                }) { Text("Начать запись") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showWriteDialog = false }) { Text("Отмена") }
+                }) { Text("Записать") }
             }
         )
     }
@@ -109,9 +143,9 @@ fun MainScreen(
                     Column {
                         Text("Scanner NFC", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text(
-                            text = if (isWritingMode) "РЕЖИМ ЗАПИСИ" else "Готов к работе",
+                            text = if (isWritingMode) "РЕЖИМ ЗАПИСИ" else if (isDeleteMode) "РЕЖИМ ОЧИСТКИ" else "Готов к работе",
                             fontSize = 12.sp, 
-                            color = if (isWritingMode) MaterialTheme.colorScheme.primary else Color.Gray
+                            color = if (isWritingMode || isDeleteMode) MaterialTheme.colorScheme.primary else Color.Gray
                         )
                     }
                 },
@@ -143,7 +177,7 @@ fun MainScreen(
                     Box(
                         modifier = Modifier.size(60.dp).offset(y = (-20).dp).shadow(8.dp, CircleShape)
                             .background(brush = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)), shape = CircleShape)
-                            .clickable { showWriteDialog = true },
+                            .clickable { showActionChoice = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(32.dp))
@@ -160,7 +194,7 @@ fun MainScreen(
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             if (selectedTab == 0) {
-                ScanContent(scanStatus, isWritingMode)
+                ScanContent(scanStatus, isWritingMode || isDeleteMode)
             } else {
                 HistoryContent(history)
             }
@@ -169,7 +203,7 @@ fun MainScreen(
 }
 
 @Composable
-fun ScanContent(status: ScanStatus, isWriting: Boolean) {
+fun ScanContent(status: ScanStatus, isBusy: Boolean) {
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Box(modifier = Modifier.size(220.dp), contentAlignment = Alignment.Center) {
             Box(modifier = Modifier.fillMaxSize().background(CardColor.copy(alpha = 0.3f), CircleShape))
@@ -183,8 +217,8 @@ fun ScanContent(status: ScanStatus, isWriting: Boolean) {
                     contentDescription = null,
                     modifier = Modifier.size(90.dp),
                     tint = when {
-                        isWriting -> Color.Yellow
-                        status is ScanStatus.Success -> Color.Green
+                        isBusy -> Color.Yellow
+                        status is ScanStatus.Success || status is ScanStatus.WriteSuccess || status is ScanStatus.DeleteSuccess -> Color.Green
                         status is ScanStatus.Error -> Color.Red
                         else -> MaterialTheme.colorScheme.primary
                     }
@@ -196,8 +230,10 @@ fun ScanContent(status: ScanStatus, isWriting: Boolean) {
         
         Text(
             text = when {
-                isWriting -> "Ожидание метки..."
+                isBusy -> "Ожидание метки..."
                 status is ScanStatus.Success -> "Метка считана!"
+                status is ScanStatus.WriteSuccess -> "Успешно записано!"
+                status is ScanStatus.DeleteSuccess -> "Метка очищена!"
                 status is ScanStatus.Error -> "Ошибка"
                 else -> "Поднесите NFC-метку"
             },
@@ -206,7 +242,7 @@ fun ScanContent(status: ScanStatus, isWriting: Boolean) {
         
         Text(
             text = when {
-                isWriting -> "Приложите метку для записи данных"
+                isBusy -> "Приложите метку к телефону"
                 status is ScanStatus.Success -> (status as ScanStatus.Success).tagContent
                 status is ScanStatus.Error -> (status as ScanStatus.Error).message
                 else -> "Информация определится автоматически"

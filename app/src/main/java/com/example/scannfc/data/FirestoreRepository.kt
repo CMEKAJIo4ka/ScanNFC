@@ -105,4 +105,15 @@ class FirestoreRepository {
             false
         }
     }
+
+    // Удаление регистрации метки (когда преподаватель очищает её)
+    suspend fun unregisterTag(tagId: String): Boolean {
+        return try {
+            db.collection("registered_tags").document(tagId).delete().await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreError", "Error unregistering tag", e)
+            false
+        }
+    }
 }

@@ -46,14 +46,23 @@ class MainActivity : ComponentActivity() {
                 val mViewModel: MainViewModel = viewModel()
                 sharedMainViewModel = mViewModel
                 
-                // Слушаем сигналы от ViewModel для выполнения физической записи
+                // Слушаем сигналы от ViewModel для выполнения физической записи или удаления
                 LaunchedEffect(mViewModel) {
                     mViewModel.scanStatus.collect { status ->
-                        if (status is ScanStatus.ReadyToWrite) {
-                            val currentTagId = lastDetectedTag?.id?.joinToString(":") { byte -> "%02X".format(byte) }
-                            if (currentTagId == status.tagId) {
-                                writeToTag(lastDetectedTag, status.text)
+                        val currentTagId = lastDetectedTag?.id?.joinToString(":") { byte -> "%02X".format(byte) }
+                        
+                        when (status) {
+                            is ScanStatus.ReadyToWrite -> {
+                                if (currentTagId == status.tagId) {
+                                    writeToTag(lastDetectedTag, status.text)
+                                }
                             }
+                            is ScanStatus.ReadyToDelete -> {
+                                if (currentTagId == status.tagId) {
+                                    writeToTag(lastDetectedTag, "") // Стираем данные, записывая пустоту
+                                }
+                            }
+                            else -> {}
                         }
                     }
                 }
@@ -111,7 +120,6 @@ class MainActivity : ComponentActivity() {
                 val tagId = it.id.joinToString(":") { byte -> "%02X".format(byte) }
                 val tagContent = readNdefContent(it) ?: "Метка без данных"
                 
-                // Передаем во ViewModel для логики (чтение или проверка перед записью)
                 sharedMainViewModel?.onTagScanned(tagId, tagContent)
             }
         }
@@ -128,7 +136,7 @@ class MainActivity : ComponentActivity() {
             ndef?.let {
                 it.connect()
                 if (!it.isWritable) {
-                    sharedMainViewModel?.onWriteFinish(false, "Метка защищена от записи на уровне железа")
+                    sharedMainViewModel?.onWriteFinish(false, "Метка защищена от записи")
                     it.close()
                     return
                 }
@@ -139,7 +147,7 @@ class MainActivity : ComponentActivity() {
                 val tagId = tag.id.joinToString(":") { byte -> "%02X".format(byte) }
                 sharedMainViewModel?.onWriteFinish(true, tagId)
             } ?: run {
-                sharedMainViewModel?.onWriteFinish(false, "Метка не поддерживает формат NDEF")
+                sharedMainViewModel?.onWriteFinish(false, "Метка не поддерживает NDEF")
             }
         } catch (e: Exception) {
             Log.e("NFC_WRITE", "Physical write error", e)
