@@ -20,6 +20,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.scannfc.data.AuthRepository
 import com.example.scannfc.ui.auth.LoginScreen
 import com.example.scannfc.ui.auth.RegisterScreen
 import com.example.scannfc.ui.main.MainScreen
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private var sharedMainViewModel: MainViewModel? = null
     private var lastDetectedTag: Tag? = null
+    private val authRepository = AuthRepository()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,12 +43,13 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "NFC не поддерживается", Toast.LENGTH_LONG).show()
         }
 
+        val startDestination = if (authRepository.currentUser != null) "main" else "login"
+
         setContent {
             ScanNFCTheme {
                 val mViewModel: MainViewModel = viewModel()
                 sharedMainViewModel = mViewModel
                 
-                // Слушаем сигналы от ViewModel для выполнения физической записи или удаления
                 LaunchedEffect(mViewModel) {
                     mViewModel.scanStatus.collect { status ->
                         val currentTagId = lastDetectedTag?.id?.joinToString(":") { byte -> "%02X".format(byte) }
@@ -59,7 +62,7 @@ class MainActivity : ComponentActivity() {
                             }
                             is ScanStatus.ReadyToDelete -> {
                                 if (currentTagId == status.tagId) {
-                                    writeToTag(lastDetectedTag, "") // Стираем данные, записывая пустоту
+                                    writeToTag(lastDetectedTag, "")
                                 }
                             }
                             else -> {}
@@ -67,7 +70,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                AppNavigation(mViewModel)
+                AppNavigation(mViewModel, startDestination)
             }
         }
     }
@@ -177,9 +180,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppNavigation(mainViewModel: MainViewModel) {
+fun AppNavigation(mainViewModel: MainViewModel, startDestination: String) {
     val navController = rememberNavController()
-    NavHost(navController = navController, startDestination = "login") {
+    NavHost(navController = navController, startDestination = startDestination) {
         composable("login") {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate("register") },
@@ -196,6 +199,7 @@ fun AppNavigation(mainViewModel: MainViewModel) {
         }
         composable("main") {
             MainScreen(viewModel = mainViewModel, onLogout = { 
+                AuthRepository().signOut() // Выходим из Firebase
                 navController.navigate("login") { popUpTo("main") { inclusive = true } }
             })
         }
