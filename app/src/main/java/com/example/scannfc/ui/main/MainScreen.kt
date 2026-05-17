@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import com.example.scannfc.models.ScanRecord
 import com.example.scannfc.ui.theme.CardColor
 import com.example.scannfc.ui.theme.DarkBackground
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -55,13 +56,18 @@ fun MainScreen(
         when (scanStatus) {
             is ScanStatus.Success -> {
                 Toast.makeText(context, "Считано: ${(scanStatus as ScanStatus.Success).tagContent}", Toast.LENGTH_SHORT).show()
+                delay(3000) // Авто-сброс через 3 секунды
+                viewModel.resetStatus()
             }
             is ScanStatus.WriteSuccess -> {
                 Toast.makeText(context, "Метка успешно записана!", Toast.LENGTH_LONG).show()
+                delay(3000)
                 viewModel.resetStatus()
             }
             is ScanStatus.Error -> {
                 Toast.makeText(context, (scanStatus as ScanStatus.Error).message, Toast.LENGTH_LONG).show()
+                delay(3000)
+                viewModel.resetStatus()
             }
             else -> {}
         }
@@ -179,6 +185,7 @@ fun ScanContent(status: ScanStatus, isWriting: Boolean) {
                     tint = when {
                         isWriting -> Color.Yellow
                         status is ScanStatus.Success -> Color.Green
+                        status is ScanStatus.Error -> Color.Red
                         else -> MaterialTheme.colorScheme.primary
                     }
                 )
@@ -217,8 +224,7 @@ fun HistoryContent(history: List<ScanRecord>) {
             Text("История пуста", color = Color.Gray)
         }
     } else {
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(history) { record ->
                 Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = CardColor), shape = RoundedCornerShape(16.dp)) {
                     Column(modifier = Modifier.padding(16.dp)) {

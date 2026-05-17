@@ -25,6 +25,11 @@ class MainViewModel : ViewModel() {
 
     private var textToWrite: String = ""
 
+    // Константа для пустой метки
+    companion object {
+        const val EMPTY_TAG_MESSAGE = "Метка без данных"
+    }
+
     init {
         loadHistory()
     }
@@ -56,6 +61,12 @@ class MainViewModel : ViewModel() {
     }
 
     private suspend fun handleReadProcess(tagId: String, tagContent: String, uid: String) {
+        // Если метка пустая, просто показываем статус "Успех", но НЕ сохраняем в БД
+        if (tagContent == EMPTY_TAG_MESSAGE || tagContent.isBlank()) {
+            _scanStatus.value = ScanStatus.Success(tagContent)
+            return
+        }
+
         _scanStatus.value = ScanStatus.Loading
         val userProfile = firestoreRepository.getUserProfile(uid)
         val scanRecord = ScanRecord(
@@ -66,6 +77,7 @@ class MainViewModel : ViewModel() {
             userGroupId = userProfile?.groupId ?: "No Group",
             timestamp = Timestamp.now()
         )
+        
         if (firestoreRepository.saveScan(scanRecord)) {
             _scanStatus.value = ScanStatus.Success(tagContent)
             loadHistory()
@@ -78,7 +90,6 @@ class MainViewModel : ViewModel() {
         val userProfile = firestoreRepository.getUserProfile(uid)
         val userRole = userProfile?.role ?: "student"
 
-        // Проверяем владельца метки в базе
         val ownerRole = firestoreRepository.getTagOwnerRole(tagId)
 
         if (ownerRole == "teacher" && userRole == "student") {
@@ -87,7 +98,6 @@ class MainViewModel : ViewModel() {
             return
         }
 
-        // Переходим в состояние "Готов к физической записи"
         _scanStatus.value = ScanStatus.ReadyToWrite(tagId, textToWrite)
     }
 
