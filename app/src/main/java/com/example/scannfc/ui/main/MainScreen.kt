@@ -39,15 +39,16 @@ fun MainScreen(
     viewModel: MainViewModel
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showWriteDialog by remember { mutableStateOf(false) }
+    var textInput by remember { mutableStateOf("") }
+    
     val scanStatus by viewModel.scanStatus.collectAsState()
     val history by viewModel.history.collectAsState()
+    val isWritingMode by viewModel.isWritingMode.collectAsState()
     val context = LocalContext.current
 
-    // Обновляем историю при переключении на вкладку истории
     LaunchedEffect(selectedTab) {
-        if (selectedTab == 2) {
-            viewModel.loadHistory()
-        }
+        if (selectedTab == 2) viewModel.loadHistory()
     }
 
     LaunchedEffect(scanStatus) {
@@ -55,11 +56,44 @@ fun MainScreen(
             is ScanStatus.Success -> {
                 Toast.makeText(context, "Считано: ${(scanStatus as ScanStatus.Success).tagContent}", Toast.LENGTH_SHORT).show()
             }
+            is ScanStatus.WriteSuccess -> {
+                Toast.makeText(context, "Метка успешно записана!", Toast.LENGTH_LONG).show()
+                viewModel.resetStatus()
+            }
             is ScanStatus.Error -> {
                 Toast.makeText(context, (scanStatus as ScanStatus.Error).message, Toast.LENGTH_LONG).show()
             }
             else -> {}
         }
+    }
+
+    if (showWriteDialog) {
+        AlertDialog(
+            onDismissRequest = { showWriteDialog = false },
+            containerColor = CardColor,
+            title = { Text("Запись на метку", color = Color.White) },
+            text = {
+                OutlinedTextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    label = { Text("Информация (кабинет, предмет)") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    )
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.prepareToWrite(textInput)
+                    showWriteDialog = false
+                    selectedTab = 0
+                }) { Text("Начать запись") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWriteDialog = false }) { Text("Отмена") }
+            }
+        )
     }
 
     Scaffold(
@@ -69,32 +103,23 @@ fun MainScreen(
                     Column {
                         Text("Scanner NFC", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text(
-                            text = if (selectedTab == 0) "Готов к сканированию" else "История сканирований",
+                            text = if (isWritingMode) "РЕЖИМ ЗАПИСИ" else "Готов к работе",
                             fontSize = 12.sp, 
-                            color = Color.Gray
+                            color = if (isWritingMode) MaterialTheme.colorScheme.primary else Color.Gray
                         )
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = onLogout,
-                        modifier = Modifier
-                            .padding(end = 8.dp)
-                            .background(CardColor, CircleShape)
-                    ) {
+                    IconButton(onClick = onLogout) {
                         Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
             )
         },
         bottomBar = {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(80.dp),
+                modifier = Modifier.fillMaxWidth().height(80.dp),
                 color = CardColor,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 12.dp
@@ -104,54 +129,22 @@ fun MainScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Главная
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedTab = 0 }
-                    ) {
-                        Icon(
-                            Icons.Default.Home, 
-                            contentDescription = null, 
-                            tint = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).clickable { selectedTab = 0 }) {
+                        Icon(Icons.Default.Home, contentDescription = null, tint = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray)
                         Text("Главная", fontSize = 10.sp, color = if (selectedTab == 0) MaterialTheme.colorScheme.primary else Color.Gray)
                     }
 
-                    // Центральная кнопка (пока заглушка)
                     Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .offset(y = (-20).dp)
-                            .shadow(8.dp, CircleShape)
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.primary,
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    )
-                                ),
-                                shape = CircleShape
-                            )
-                            .clickable { selectedTab = 0 },
+                        modifier = Modifier.size(60.dp).offset(y = (-20).dp).shadow(8.dp, CircleShape)
+                            .background(brush = Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)), shape = CircleShape)
+                            .clickable { showWriteDialog = true },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black, modifier = Modifier.size(32.dp))
                     }
 
-                    // История
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedTab = 2 }
-                    ) {
-                        Icon(
-                            Icons.Default.History, 
-                            contentDescription = null, 
-                            tint = if (selectedTab == 2) MaterialTheme.colorScheme.primary else Color.Gray
-                        )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f).clickable { selectedTab = 2 }) {
+                        Icon(Icons.Default.History, contentDescription = null, tint = if (selectedTab == 2) MaterialTheme.colorScheme.primary else Color.Gray)
                         Text("История", fontSize = 10.sp, color = if (selectedTab == 2) MaterialTheme.colorScheme.primary else Color.Gray)
                     }
                 }
@@ -161,8 +154,8 @@ fun MainScreen(
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
             if (selectedTab == 0) {
-                ScanContent(scanStatus)
-            } else if (selectedTab == 2) {
+                ScanContent(scanStatus, isWritingMode)
+            } else {
                 HistoryContent(history)
             }
         }
@@ -170,27 +163,24 @@ fun MainScreen(
 }
 
 @Composable
-fun ScanContent(scanStatus: ScanStatus) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier.size(220.dp),
-            contentAlignment = Alignment.Center
-        ) {
+fun ScanContent(status: ScanStatus, isWriting: Boolean) {
+    Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(modifier = Modifier.size(220.dp), contentAlignment = Alignment.Center) {
             Box(modifier = Modifier.fillMaxSize().background(CardColor.copy(alpha = 0.3f), CircleShape))
             Box(modifier = Modifier.size(170.dp).background(CardColor.copy(alpha = 0.6f), CircleShape))
             
-            if (scanStatus is ScanStatus.Loading) {
+            if (status is ScanStatus.Loading) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             } else {
                 Icon(
                     imageVector = Icons.Default.Nfc,
                     contentDescription = null,
                     modifier = Modifier.size(90.dp),
-                    tint = if (scanStatus is ScanStatus.Success) Color.Green else MaterialTheme.colorScheme.primary
+                    tint = when {
+                        isWriting -> Color.Yellow
+                        status is ScanStatus.Success -> Color.Green
+                        else -> MaterialTheme.colorScheme.primary
+                    }
                 )
             }
         }
@@ -198,25 +188,23 @@ fun ScanContent(scanStatus: ScanStatus) {
         Spacer(modifier = Modifier.height(32.dp))
         
         Text(
-            text = when (scanStatus) {
-                is ScanStatus.Success -> "Метка считана!"
-                is ScanStatus.Error -> "Ошибка"
+            text = when {
+                isWriting -> "Ожидание метки..."
+                status is ScanStatus.Success -> "Метка считана!"
+                status is ScanStatus.Error -> "Ошибка"
                 else -> "Поднесите NFC-метку"
             },
-            fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White
+            fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Color.White
         )
         
         Text(
-            text = when (scanStatus) {
-                is ScanStatus.Success -> (scanStatus as ScanStatus.Success).tagContent
-                is ScanStatus.Error -> (scanStatus as ScanStatus.Error).message
+            text = when {
+                isWriting -> "Приложите метку для записи данных"
+                status is ScanStatus.Success -> (status as ScanStatus.Success).tagContent
+                status is ScanStatus.Error -> (status as ScanStatus.Error).message
                 else -> "Информация определится автоматически"
             },
-            fontSize = 18.sp,
-            color = if (scanStatus is ScanStatus.Success) MaterialTheme.colorScheme.primary else Color.Gray,
-            textAlign = TextAlign.Center,
+            fontSize = 16.sp, color = Color.Gray, textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 12.dp, start = 32.dp, end = 32.dp)
         )
     }
@@ -229,57 +217,25 @@ fun HistoryContent(history: List<ScanRecord>) {
             Text("История пуста", color = Color.Gray)
         }
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(history) { record ->
-                HistoryItem(record)
+                Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = CardColor), shape = RoundedCornerShape(16.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(text = record.tagContent, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+                            Text(text = formatTimestamp(record.timestamp), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Text(text = "Tag: ${record.tagId}", fontSize = 11.sp, color = Color.Gray)
+                    }
+                }
             }
-        }
-    }
-}
-
-@Composable
-fun HistoryItem(record: ScanRecord) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = CardColor),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = record.tagContent,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = formatTimestamp(record.timestamp),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "ID: ${record.tagId}",
-                fontSize = 12.sp,
-                color = Color.Gray
-            )
         }
     }
 }
 
 fun formatTimestamp(timestamp: com.google.firebase.Timestamp?): String {
     if (timestamp == null) return ""
-    val date = timestamp.toDate()
     val sdf = SimpleDateFormat("dd MMM, HH:mm", Locale("ru"))
-    return sdf.format(date)
+    return sdf.format(timestamp.toDate())
 }

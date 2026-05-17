@@ -69,13 +69,40 @@ class FirestoreRepository {
                 query = query.whereEqualTo("userGroupId", groupId)
             }
             
-            // Убрали orderBy, чтобы не требовать индекс в Firestore. 
-            // Сортировку сделаем в MainViewModel средствами Kotlin.
             val snapshot = query.get().await()
             snapshot.documents.mapNotNull { it.toObject(ScanRecord::class.java) }
         } catch (e: Exception) {
             Log.e("FirestoreError", "Error getting history", e)
             emptyList()
+        }
+    }
+
+    // Проверка, защищена ли метка преподавателем
+    suspend fun getTagOwnerRole(tagId: String): String? {
+        return try {
+            val snapshot = db.collection("registered_tags").document(tagId).get().await()
+            if (snapshot.exists()) {
+                snapshot.getString("ownerRole")
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // Регистрация метки (кто последний записал данные)
+    suspend fun registerTag(tagId: String, userId: String, ownerRole: String): Boolean {
+        return try {
+            val data = mapOf(
+                "tagId" to tagId,
+                "ownerId" to userId,
+                "ownerRole" to ownerRole,
+                "updatedAt" to com.google.firebase.Timestamp.now()
+            )
+            db.collection("registered_tags").document(tagId).set(data).await()
+            true
+        } catch (e: Exception) {
+            Log.e("FirestoreError", "Error registering tag", e)
+            false
         }
     }
 }

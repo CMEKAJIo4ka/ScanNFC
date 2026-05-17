@@ -3,6 +3,8 @@ package com.example.scannfc
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.IntentFilter
+import android.nfc.NdefMessage
+import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.Ndef
@@ -13,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,12 +24,14 @@ import com.example.scannfc.ui.auth.LoginScreen
 import com.example.scannfc.ui.auth.RegisterScreen
 import com.example.scannfc.ui.main.MainScreen
 import com.example.scannfc.ui.main.MainViewModel
+import com.example.scannfc.ui.main.ScanStatus
 import com.example.scannfc.ui.theme.ScanNFCTheme
 import java.nio.charset.Charset
 
 class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private var sharedMainViewModel: MainViewModel? = null
+    private var lastDetectedTag: Tag? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +46,18 @@ class MainActivity : ComponentActivity() {
                 val mViewModel: MainViewModel = viewModel()
                 sharedMainViewModel = mViewModel
                 
+                // Слушаем сигналы от ViewModel для выполнения физической записи
+                LaunchedEffect(mViewModel) {
+                    mViewModel.scanStatus.collect { status ->
+                        if (status is ScanStatus.ReadyToWrite) {
+                            val currentTagId = lastDetectedTag?.id?.joinToString(":") { byte -> "%02X".format(byte) }
+                            if (currentTagId == status.tagId) {
+                                writeToTag(lastDetectedTag, status.text)
+                            }
+                        }
+                    }
+                }
+
                 AppNavigation(mViewModel)
             }
         }
@@ -66,14 +83,21 @@ class MainActivity : ComponentActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
-        val filters = arrayOf(IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED))
+        val filters = arrayOf(
+            IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED).apply {
+                try { addDataType("*/*") } catch (e: Exception) {}
+            },
+            IntentFilter(NfcAdapter.ACTION_TAG_DISCOVERED)
+        )
         nfcAdapter?.enableForegroundDispatch(this, pendingIntent, filters, null)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (NfcAdapter.ACTION_TAG_DISCOVERED == intent.action || 
-            NfcAdapter.ACTION_NDEF_DISCOVERED == intent.action) {
+        val action = intent.action
+        if (NfcAdapter.ACTION_TAG_DISCOVERED == action || 
+            NfcAdapter.ACTION_NDEF_DISCOVERED == action ||
+            NfcAdapter.ACTION_TECH_DISCOVERED == action) {
             
             val tag: Tag? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
@@ -83,12 +107,43 @@ class MainActivity : ComponentActivity() {
             }
             
             tag?.let {
+                lastDetectedTag = it
                 val tagId = it.id.joinToString(":") { byte -> "%02X".format(byte) }
                 val tagContent = readNdefContent(it) ?: "Метка без данных"
                 
-                Log.d("NFC_SCAN", "ID: $tagId, Content: $tagContent")
+                // Передаем во ViewModel для логики (чтение или проверка перед записью)
                 sharedMainViewModel?.onTagScanned(tagId, tagContent)
             }
+        }
+    }
+
+    private fun writeToTag(tag: Tag?, text: String) {
+        if (tag == null) {
+            sharedMainViewModel?.onWriteFinish(false, "")
+            return
+        }
+
+        val ndef = Ndef.get(tag)
+        try {
+            ndef?.let {
+                it.connect()
+                if (!it.isWritable) {
+                    sharedMainViewModel?.onWriteFinish(false, "Метка защищена от записи на уровне железа")
+                    it.close()
+                    return
+                }
+                val mimeRecord = NdefRecord.createTextRecord("en", text)
+                it.writeNdefMessage(NdefMessage(mimeRecord))
+                it.close()
+                
+                val tagId = tag.id.joinToString(":") { byte -> "%02X".format(byte) }
+                sharedMainViewModel?.onWriteFinish(true, tagId)
+            } ?: run {
+                sharedMainViewModel?.onWriteFinish(false, "Метка не поддерживает формат NDEF")
+            }
+        } catch (e: Exception) {
+            Log.e("NFC_WRITE", "Physical write error", e)
+            sharedMainViewModel?.onWriteFinish(false, "Ошибка: держите метку дольше")
         }
     }
 
@@ -108,7 +163,6 @@ class MainActivity : ComponentActivity() {
                 } else null
             }
         } catch (e: Exception) {
-            Log.e("NFC", "Read error", e)
             null
         }
     }
@@ -117,15 +171,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppNavigation(mainViewModel: MainViewModel) {
     val navController = rememberNavController()
-    
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
             LoginScreen(
                 onNavigateToRegister = { navController.navigate("register") },
                 onLoginSuccess = { 
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    navController.navigate("main") { popUpTo("login") { inclusive = true } }
                 }
             )
         }
@@ -136,14 +187,9 @@ fun AppNavigation(mainViewModel: MainViewModel) {
             )
         }
         composable("main") {
-            MainScreen(
-                viewModel = mainViewModel,
-                onLogout = {
-                    navController.navigate("login") {
-                        popUpTo("main") { inclusive = true }
-                    }
-                }
-            )
+            MainScreen(viewModel = mainViewModel, onLogout = { 
+                navController.navigate("login") { popUpTo("main") { inclusive = true } }
+            })
         }
     }
 }
