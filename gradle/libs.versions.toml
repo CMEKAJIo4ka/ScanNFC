@@ -14,6 +14,7 @@ composeBom = "2025.02.00"
 activityCompose = "1.10.0"
 navigationCompose = "2.8.7"
 lifecycleCompose = "2.8.7"
+coil = "2.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,6 +29,7 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutines" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 # Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

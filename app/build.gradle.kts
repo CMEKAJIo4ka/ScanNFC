@@ -62,6 +62,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.material.icons.extended)
 
+    // Image Loading
+    implementation(libs.coil.compose)
+
     debugImplementation(libs.androidx.ui.tooling)
 
     testImplementation(libs.junit)
