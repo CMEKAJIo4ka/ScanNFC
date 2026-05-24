@@ -7,11 +7,11 @@ import kotlinx.coroutines.tasks.await
 class AuthRepository {
     private val auth = FirebaseAuth.getInstance()
 
-    // Получить текущего пользователя
+
     val currentUser: FirebaseUser?
         get() = auth.currentUser
 
-    // Вход в систему
+
     suspend fun signIn(email: String, password: String): Boolean {
         return try {
             auth.signInWithEmailAndPassword(email, password).await()
@@ -21,7 +21,7 @@ class AuthRepository {
         }
     }
 
-    // Регистрация (возвращает UID пользователя или null)
+
     suspend fun signUp(email: String, password: String): String? {
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
@@ -31,7 +31,7 @@ class AuthRepository {
         }
     }
 
-    // Выход
+
     fun signOut() {
         auth.signOut()
     }

@@ -66,7 +66,7 @@ fun MainScreen(
                 if (!isImageUrl(content)) {
                     Toast.makeText(context, "Считано: $content", Toast.LENGTH_SHORT).show()
                 }
-                delay(15000) // Увеличил время показа результата
+                delay(15000)
                 viewModel.resetStatus()
             }
             is ScanStatus.WriteSuccess -> {

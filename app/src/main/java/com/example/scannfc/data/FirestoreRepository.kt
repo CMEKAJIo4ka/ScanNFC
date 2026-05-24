@@ -77,7 +77,7 @@ class FirestoreRepository {
         }
     }
 
-    // Проверка, защищена ли метка преподавателем
+
     suspend fun getTagOwnerRole(tagId: String): String? {
         return try {
             val snapshot = db.collection("registered_tags").document(tagId).get().await()
@@ -89,7 +89,7 @@ class FirestoreRepository {
         }
     }
 
-    // Регистрация метки (кто последний записал данные)
+
     suspend fun registerTag(tagId: String, userId: String, ownerRole: String): Boolean {
         return try {
             val data = mapOf(
@@ -106,7 +106,7 @@ class FirestoreRepository {
         }
     }
 
-    // Удаление регистрации метки (когда преподаватель очищает её)
+
     suspend fun unregisterTag(tagId: String): Boolean {
         return try {
             db.collection("registered_tags").document(tagId).delete().await()

@@ -106,7 +106,6 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Градиентная кнопка
             Button(
                 onClick = { viewModel.signIn(email, password) },
                 modifier = Modifier

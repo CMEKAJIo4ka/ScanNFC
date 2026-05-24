@@ -100,7 +100,6 @@ class MainViewModel : ViewModel() {
 
         val ownerRole = firestoreRepository.getTagOwnerRole(tagId)
 
-        // Проверка прав: студенту нельзя менять/удалять метки учителя
         if (ownerRole == "teacher" && userRole == "student") {
             val action = if (_isDeleteMode.value) "удалять" else "изменять"
             _scanStatus.value = ScanStatus.Error("Запрещено $action метку преподавателя")

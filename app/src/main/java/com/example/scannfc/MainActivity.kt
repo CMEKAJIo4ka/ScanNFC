@@ -199,7 +199,7 @@ fun AppNavigation(mainViewModel: MainViewModel, startDestination: String) {
         }
         composable("main") {
             MainScreen(viewModel = mainViewModel, onLogout = { 
-                AuthRepository().signOut() // Выходим из Firebase
+                AuthRepository().signOut()
                 navController.navigate("login") { popUpTo("main") { inclusive = true } }
             })
         }
