@@ -58,24 +58,27 @@ class MainViewModel : ViewModel() {
     }
 
     fun onTagScanned(tagId: String, tagContent: String) {
-        val currentUser = authRepository.currentUser ?: return
-
         viewModelScope.launch {
             if (_isWritingMode.value || _isDeleteMode.value) {
-                handleWriteOrDeleteProcess(tagId, currentUser.uid)
+                val uid = authRepository.currentUser?.uid
+                if (uid == null) {
+                    _scanStatus.value = ScanStatus.Error("Ошибка авторизации")
+                    return@launch
+                }
+                handleWriteOrDeleteProcess(tagId, uid)
             } else {
-                handleReadProcess(tagId, tagContent, currentUser.uid)
+                _scanStatus.value = ScanStatus.Success(tagContent)
+                
+                authRepository.currentUser?.uid?.let { uid ->
+                    handleReadProcess(tagId, tagContent, uid)
+                }
             }
         }
     }
 
     private suspend fun handleReadProcess(tagId: String, tagContent: String, uid: String) {
-        if (tagContent == EMPTY_TAG_MESSAGE || tagContent.isBlank()) {
-            _scanStatus.value = ScanStatus.Success(tagContent)
-            return
-        }
+        if (tagContent == EMPTY_TAG_MESSAGE || tagContent.isBlank()) return
 
-        _scanStatus.value = ScanStatus.Loading
         val userProfile = firestoreRepository.getUserProfile(uid)
         val scanRecord = ScanRecord(
             tagId = tagId,
@@ -87,17 +90,13 @@ class MainViewModel : ViewModel() {
         )
         
         if (firestoreRepository.saveScan(scanRecord)) {
-            _scanStatus.value = ScanStatus.Success(tagContent)
             loadHistory()
-        } else {
-            _scanStatus.value = ScanStatus.Error("Ошибка сохранения")
         }
     }
 
     private suspend fun handleWriteOrDeleteProcess(tagId: String, uid: String) {
         val userProfile = firestoreRepository.getUserProfile(uid)
         val userRole = userProfile?.role ?: "student"
-
         val ownerRole = firestoreRepository.getTagOwnerRole(tagId)
 
         if (ownerRole == "teacher" && userRole == "student") {
@@ -131,7 +130,7 @@ class MainViewModel : ViewModel() {
                     _scanStatus.value = ScanStatus.WriteSuccess
                 }
             } else {
-                _scanStatus.value = ScanStatus.Error("Ошибка операции")
+                _scanStatus.value = ScanStatus.Error("Ошибка записи")
             }
             _isWritingMode.value = false
             _isDeleteMode.value = false

@@ -27,6 +27,7 @@ import com.example.scannfc.ui.main.MainScreen
 import com.example.scannfc.ui.main.MainViewModel
 import com.example.scannfc.ui.main.ScanStatus
 import com.example.scannfc.ui.theme.ScanNFCTheme
+import kotlinx.coroutines.delay
 import java.nio.charset.Charset
 
 class MainActivity : ComponentActivity() {
@@ -70,6 +71,11 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(Unit) {
+                    delay(500)
+                    handleIntent(intent)
+                }
+
                 AppNavigation(mViewModel, startDestination)
             }
         }
@@ -106,6 +112,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent) 
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent) {
         val action = intent.action
         if (NfcAdapter.ACTION_TAG_DISCOVERED == action || 
             NfcAdapter.ACTION_NDEF_DISCOVERED == action ||
@@ -143,8 +154,14 @@ class MainActivity : ComponentActivity() {
                     it.close()
                     return
                 }
-                val mimeRecord = NdefRecord.createTextRecord("en", text)
-                it.writeNdefMessage(NdefMessage(mimeRecord))
+
+                val textRecord = NdefRecord.createTextRecord("en", text)
+                
+                val aarRecord = NdefRecord.createApplicationRecord(packageName)
+                
+                val ndefMessage = NdefMessage(arrayOf(textRecord, aarRecord))
+                
+                it.writeNdefMessage(ndefMessage)
                 it.close()
                 
                 val tagId = tag.id.joinToString(":") { byte -> "%02X".format(byte) }

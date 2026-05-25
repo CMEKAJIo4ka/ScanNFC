@@ -47,6 +47,7 @@ fun MainScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var showActionChoice by remember { mutableStateOf(false) }
     var showWriteInput by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     var textInput by remember { mutableStateOf("") }
     
     val scanStatus by viewModel.scanStatus.collectAsState()
@@ -86,6 +87,29 @@ fun MainScreen(
             }
             else -> {}
         }
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            containerColor = CardColor,
+            title = { Text("Выход из системы", color = Color.White) },
+            text = { Text("Вы точно хотите выйти из аккаунта?", color = Color.Gray) },
+            confirmButton = {
+                Button(
+                    onClick = { 
+                        showLogoutDialog = false
+                        onLogout() 
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) { Text("Выйти") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Отмена", color = Color.Gray)
+                }
+            }
+        )
     }
 
     if (showActionChoice) {
@@ -145,7 +169,7 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onLogout) {
+                    IconButton(onClick = { showLogoutDialog = true }) {
                         Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White)
                     }
                 },
